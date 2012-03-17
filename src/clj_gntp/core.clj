@@ -1,9 +1,8 @@
 (ns clj-gntp.core
-  (:import [java.net Socket]))
-
-(import '(java.net Socket)
-        '(java.io PrintWriter InputStreamReader BufferedReader))
-
+  (:use clojure.contrib.command-line)
+  (:import
+    [java.net Socket]
+    [java.io PrintWriter InputStreamReader BufferedReader]))
 
 (def socket (atom nil))
 (def in (atom nil))
@@ -65,9 +64,14 @@
 
 (defn growl
   "growl it"
-  [server port title message url icon]
+  [title message & extra]
   (do
-    (register server port "clj-gntp" [{:name "clj-gntp-notify"}] nil nil)
-    (notify server port "clj-gntp" "clj-gntp-notify" title message nil url icon)))
+    (register "localhost" 23053 "clj-gntp" [{:name "clj-gntp-notify"}] nil nil)
+    (notify "localhost" 23053 "clj-gntp" "clj-gntp-notify" title message nil (first extra) (second extra))))
 
-;(growl "localhost" 23053 "foo" "bar" "http://www.google.com" "http://mattn.kaoriya.net/images/logo.png")
+(defn -main [& args]
+  (with-command-line args
+    "clj-gntp" 
+    [[title "title" "clj-gntp"]
+     [message "message" "helloworld"]]
+  (growl title message)))
