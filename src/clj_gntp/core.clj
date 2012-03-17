@@ -70,4 +70,4 @@
     (register server port "clj-gntp" [{:name "clj-gntp-notify"}] nil nil)
     (notify server port "clj-gntp" "clj-gntp-notify" title message nil url icon)))
 
-(growl "localhost" 23053 "foo" "bar" "http://www.google.com" "http://mattn.kaoriya.net/images/logo.png")
+;(growl "localhost" 23053 "foo" "bar" "http://www.google.com" "http://mattn.kaoriya.net/images/logo.png")
