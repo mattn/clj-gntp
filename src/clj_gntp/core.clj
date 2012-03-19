@@ -1,5 +1,4 @@
 (ns clj-gntp.core
-  (:use clojure.contrib.command-line)
   (:import
     [java.net Socket]
     [java.io PrintWriter InputStreamReader BufferedReader]))
@@ -70,8 +69,6 @@
     (notify "localhost" 23053 "clj-gntp" "clj-gntp-notify" title message nil (first extra) (second extra))))
 
 (defn -main [& args]
-  (with-command-line args
-    "clj-gntp" 
-    [[title "title" "clj-gntp"]
-     [message "message" "helloworld"]]
-  (growl title message)))
+  (if (= (count args) 2)
+    (growl (nth args 0) (nth args 1))
+    (println "Usage: clj-gntp [title] [message]")))
