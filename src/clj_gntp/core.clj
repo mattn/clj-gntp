@@ -42,7 +42,7 @@
           "MD5:"
           (.toString (BigInteger. 1 first-part) 16)
           "."
-          (.toString (BigInteger. 1 (.getBytes salt)) 8))))))
+          (.toString (BigInteger. 1 (.getBytes salt)) 16))))))
 
 (defn register
   "Register notification."
@@ -71,7 +71,7 @@
   [server port appname notify title message password url icon]
   (do
     (start-client server port)
-    (send-line (str "GNTP/1.0 REGISTER NONE " (if password (hash-pass password) "")))
+    (send-line (str "GNTP/1.0 NOTIFY NONE " (if password (hash-pass password) "")))
     (send-line (str "Application-Name: " appname))
     (send-line (str "Notification-Name: " notify))
     (send-line (str "Notification-Title: " title))
