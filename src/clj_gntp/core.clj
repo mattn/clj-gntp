@@ -2,7 +2,8 @@
   (:gen-class)
   (:import
     [java.net Socket]
-    [java.io PrintWriter InputStreamReader BufferedReader]))
+    [java.io PrintWriter InputStreamReader BufferedReader]
+    [java.security MessageDigest]))
 
 (def socket (atom nil))
 (def in (atom nil))
@@ -19,16 +20,36 @@
       (. @out close)
       (. @socket close)))
 
-(defn send-line [m] (do (. @out print (str m "\r\n")) (. @out flush)))
+(defn send-line [m] (. @out print (str m "\r\n")))
 (defn recv-line [] (. @in readLine))
 (defn recv-all [] (apply str (line-seq @in)))
+(defn send-flush [] (. @out flush))
+
+(defn gensalt [n]
+  (let [charseq (map char (concat (range 48 58) (range 97 123)))]
+    (apply str (take n (repeatedly #(rand-nth charseq))))))
+
+(defn hash-pass [password]
+  (let [salt (gensalt 8) hasher (MessageDigest/getInstance "MD5")]
+    (do
+      (let [
+        first-part (do
+          (.reset hasher)
+          (.update hasher (.getBytes password))
+          (.update hasher (.getBytes salt))
+          (.digest hasher))]
+        (str
+          "MD5:"
+          (.toString (BigInteger. 1 first-part) 16)
+          "."
+          (.toString (BigInteger. 1 (.getBytes salt)) 8))))))
 
 (defn register
   "Register notification."
   [server port appname notifications password icon]
   (do
     (start-client server port)
-    (send-line "GNTP/1.0 REGISTER NONE ")
+    (send-line (str "GNTP/1.0 REGISTER NONE " (if password (hash-pass password) "")))
     (send-line (str "Application-Name: " appname))
     (if icon
       (send-line (str "Application-Icon: " icon)))
@@ -41,7 +62,8 @@
         (send-line (str "Notification-Enabled: " "True"))
         (send-line "")))
     (send-line "")
-    (recv-line)
+    (send-flush)
+    (recv-line) ; TODO: error check
     (stop-client)))
 
 (defn notify
@@ -49,7 +71,7 @@
   [server port appname notify title message password url icon]
   (do
     (start-client server port)
-    (send-line "GNTP/1.0 NOTIFY NONE ")
+    (send-line (str "GNTP/1.0 REGISTER NONE " (if password (hash-pass password) "")))
     (send-line (str "Application-Name: " appname))
     (send-line (str "Notification-Name: " notify))
     (send-line (str "Notification-Title: " title))
@@ -59,6 +81,7 @@
     (if icon
       (send-line (str "Notification-Icon: " icon)))
     (send-line "")
+    (send-flush)
     (recv-line) ; TODO: error check
     (stop-client)))
 
