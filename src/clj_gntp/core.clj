@@ -1,4 +1,5 @@
 (ns clj-gntp.core
+  (:gen-class)
   (:import
     [java.net Socket]
     [java.io PrintWriter InputStreamReader BufferedReader]))
