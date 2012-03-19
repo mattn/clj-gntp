@@ -11,7 +11,7 @@
 (defn start-client [host port]
     (do
       (reset! socket (Socket. host port))
-      (reset! out (PrintWriter. (. @socket getOutputStream) true))
+      (reset! out (PrintWriter. (. @socket getOutputStream)))
       (reset! in (BufferedReader. (InputStreamReader. (. @socket getInputStream))))))
 
 (defn stop-client []
@@ -19,7 +19,7 @@
       (. @out close)
       (. @socket close)))
 
-(defn send-line [m] (. @out println (str m "\r")))
+(defn send-line [m] (do (. @out print (str m "\r\n")) (. @out flush)))
 (defn recv-line [] (. @in readLine))
 (defn recv-all [] (apply str (line-seq @in)))
 
