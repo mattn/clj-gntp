@@ -37,10 +37,14 @@
           (.reset hasher)
           (.update hasher (.getBytes password))
           (.update hasher (.getBytes salt))
+          (.digest hasher))
+        second-part (do
+          (.reset hasher)
+          (.update hasher first-part)
           (.digest hasher))]
         (str
           "MD5:"
-          (.toString (BigInteger. 1 first-part) 16)
+          (.toString (BigInteger. 1 second-part) 16)
           "."
           (.toString (BigInteger. 1 (.getBytes salt)) 16))))))
 
