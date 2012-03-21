@@ -5,25 +5,9 @@
     [java.io PrintWriter InputStreamReader BufferedReader]
     [java.security MessageDigest]))
 
-(def socket (atom nil))
-(def in (atom nil))
-(def out (atom nil))
-
-(defn start-client [host port]
-    (do
-      (reset! socket (Socket. host port))
-      (reset! out (PrintWriter. (. @socket getOutputStream)))
-      (reset! in (BufferedReader. (InputStreamReader. (. @socket getInputStream))))))
-
-(defn stop-client []
-  (do (. @in close)
-      (. @out close)
-      (. @socket close)))
-
-(defn send-line [m] (. @out print (str m "\r\n")))
-(defn recv-line [] (. @in readLine))
-(defn recv-all [] (apply str (line-seq @in)))
-(defn send-flush [] (. @out flush))
+(defn send-line [s m] (. s print (str m "\r\n")))
+(defn recv-line [s] (. s readLine))
+(defn send-flush [s] (. s flush))
 
 (defn gensalt [n]
   (let [charseq (map char (concat (range 48 58) (range 97 123)))]
@@ -48,55 +32,72 @@
           "."
           (.toString (BigInteger. 1 (.getBytes salt)) 16))))))
 
-(defn register
-  "Register notification."
-  [server port appname notifications password icon]
-  (do
-    (start-client server port)
-    (send-line (str "GNTP/1.0 REGISTER NONE " (if password (hash-pass password) "")))
-    (send-line (str "Application-Name: " appname))
-    (if icon
-      (send-line (str "Application-Icon: " icon)))
-    (send-line (str "Notifications-Count: " (count notifications)))
-    (send-line "")
-    (doseq [notification notifications]
+(defrecord Growl [server port appname password])
+
+(defmulti register (fn[this notifications icon] this))
+(defmethod register :default [this notifications icon]
+  (with-open [socket (Socket. (:server this) (:port this))
+        out (PrintWriter. (. socket getOutputStream))
+        in (BufferedReader. (InputStreamReader. (. socket getInputStream)))]
+    (do
+      (send-line out (str "GNTP/1.0 REGISTER NONE " (if
+        (:password this) (hash-pass (:password this)) "")))
+      (send-line out (str "Application-Name: " (:appname this)))
+      (if icon
+        (send-line out (str "Application-Icon: " icon)))
+      (send-line out (str "Notifications-Count: " (count notifications)))
+      (send-line out "")
+      (doseq [notification notifications]
+        (do
+          (send-line out (str "Notification-Name: " (notification :name)))
+          (send-line out (str "Notification-Display-Name: " "foo"))
+          (send-line out (str "Notification-Enabled: " "True"))
+          (send-line out "")))
+      (send-line out "")
+      (send-flush out)
+      (recv-line in))
+    (do (. in close)
+        (. out close)
+        (. socket close)))) ; TODO: error check
+
+(defmulti notify (fn[this notify title message & extra] this))
+(defmethod notify :default [this notify title message & extra]
+  (with-open [socket (Socket. (:server this) (:port this))
+        out (PrintWriter. (. socket getOutputStream))
+        in (BufferedReader. (InputStreamReader. (. socket getInputStream)))]
+    (do
+      (send-line out (str "GNTP/1.0 NOTIFY NONE " (if
+        (:password this) (hash-pass (:password this)) "")))
+      (send-line out (str "Application-Name: " (:appname this)))
+      (send-line out (str "Notification-Name: " notify))
+      (send-line out (str "Notification-Title: " title))
+      (send-line out (str "Notification-Text: " message))
+      (if (first extra)
+        (send-line out (str "Notification-Icon: " (second extra))))
+      (if (second extra)
+        (send-line out (str "Notification-Callback-Target: " (second extra))))
+      (send-line out "")
+      (send-flush out)
+      (recv-line in)
+    (do (. in close)
+        (. out close)
+        (. socket close))))) ; TODO: error check
+
+(defn growl [& args]
+  (Growl.
+    (nth args 0 "localhost") ; server
+    (nth args 1 23053)       ; port
+    (nth args 2 "clj-gntp")  ; appname
+    (nth args 3 nil)))       ; password
+
+(defn growl-notify
+  [title message url icon]
+    (let [g (growl)]
       (do
-        (send-line (str "Notification-Name: " (notification :name)))
-        (send-line (str "Notification-Display-Name: " "foo"))
-        (send-line (str "Notification-Enabled: " "True"))
-        (send-line "")))
-    (send-line "")
-    (send-flush)
-    (recv-line) ; TODO: error check
-    (stop-client)))
-
-(defn notify
-  "Send notify"
-  [server port appname notify title message password url icon]
-  (do
-    (start-client server port)
-    (send-line (str "GNTP/1.0 NOTIFY NONE " (if password (hash-pass password) "")))
-    (send-line (str "Application-Name: " appname))
-    (send-line (str "Notification-Name: " notify))
-    (send-line (str "Notification-Title: " title))
-    (send-line (str "Notification-Text: " message))
-    (if url
-      (send-line (str "Notification-Callback-Target: " url)))
-    (if icon
-      (send-line (str "Notification-Icon: " icon)))
-    (send-line "")
-    (send-flush)
-    (recv-line) ; TODO: error check
-    (stop-client)))
-
-(defn growl
-  "growl it"
-  [title message & extra]
-  (do
-    (register "localhost" 23053 "clj-gntp" [{:name "clj-gntp-notify"}] nil nil)
-    (notify "localhost" 23053 "clj-gntp" "clj-gntp-notify" title message nil (first extra) (second extra))))
+        (register g [{:name "clj-gntp-notify"}] nil)
+        (notify (growl) "clj-gntp-notify" title message url icon))))
 
 (defn -main [& args]
-  (if (= (count args) 2)
-    (growl (nth args 0) (nth args 1))
+  (if (>= (count args) 2)
+    (growl-notify (nth args 0) (nth args 1) (nth args 2 nil) (nth args 2 nil))
     (println "Usage: clj-gntp [title] [message]")))
