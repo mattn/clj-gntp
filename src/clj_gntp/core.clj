@@ -9,12 +9,12 @@
 (defn recv-line [s] (. s readLine))
 (defn send-flush [s] (. s flush))
 
-(defn gensalt [n]
+(defn gen-salt [n]
   (let [charseq (map char (concat (range 48 58) (range 97 123)))]
     (apply str (take n (repeatedly #(rand-nth charseq))))))
 
 (defn hash-pass [password]
-  (let [salt (gensalt 8) hasher (MessageDigest/getInstance "MD5")]
+  (let [salt (gen-salt 8) hasher (MessageDigest/getInstance "MD5")]
     (do
       (let [
         first-part (do
@@ -95,7 +95,7 @@
     (let [g (growl)]
       (do
         (register g [{:name "clj-gntp-notify"}] nil)
-        (notify (growl) "clj-gntp-notify" title message url icon))))
+        (notify g "clj-gntp-notify" title message url icon))))
 
 (defn -main [& args]
   (if (>= (count args) 2)
