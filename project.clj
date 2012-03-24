@@ -1,4 +1,4 @@
-(defproject clj-gntp "1.0.0-SNAPSHOT"
+(defproject clj-gntp "0.0.1"
   :main clj-gntp.core
-  :description "FIXME: write description"
+  :description "interface to growl"
   :dependencies [[org.clojure/clojure "1.3.0"]])
